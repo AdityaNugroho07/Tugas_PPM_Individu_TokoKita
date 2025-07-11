@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:tokokita/UI/produk_page.dart';
 import 'package:tokokita/model/produk.dart';
-import 'package:tokokita/ui/produk_form.dart';
 import 'package:tokokita/ui/produk_page.dart';
 import 'package:tokokita/bloc/produk_bloc.dart';
 import 'package:tokokita/widget/warning_dialog.dart';
@@ -16,6 +16,8 @@ class ProdukDetail extends StatefulWidget {
 
 class _ProdukDetailState extends State<ProdukDetail> {
   bool _isDeleting = false;
+  
+  get produk => null;
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +54,8 @@ class _ProdukDetailState extends State<ProdukDetail> {
             Navigator.push(
               context,
               MaterialPageRoute(
-               builder: (context) => const ProdukForm(),
+              builder: (context) => ProdukForm(produk: produk),
+
 
               ),
             );
@@ -87,7 +90,7 @@ class _ProdukDetailState extends State<ProdukDetail> {
           TextButton(
             child: const Text("Ya"),
             onPressed: () {
-              Navigator.pop(context); // Tutup dialog dulu
+              Navigator.pop(context);
               hapusProduk();
             },
           ),

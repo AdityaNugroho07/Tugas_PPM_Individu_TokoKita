@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tokokita/HELPERS/user_info.dart';
 import 'package:tokokita/UI/login_page.dart';
-import 'package:tokokita/UI/produk_page.dart';
 
 void main() {
   runApp(const MainApp());

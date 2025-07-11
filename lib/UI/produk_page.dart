@@ -1,178 +1,126 @@
 import 'package:flutter/material.dart';
-import 'package:tokokita/BLOC/produk_bloc.dart';
-import 'package:tokokita/MODEL/produk.dart';
-import 'package:tokokita/UI/produk_page.dart';
-import 'package:tokokita/WIDGET/warning_dialog.dart';
+import 'package:tokokita/bloc/logout_bloc.dart';
+import 'package:tokokita/bloc/produk_bloc.dart';
+import 'package:tokokita/model/produk.dart';
+import 'package:tokokita/UI/login_page.dart';
+import 'package:tokokita/UI/produk_detail.dart';
+import 'package:tokokita/UI/produk_form.dart';
 
-class ProdukForm extends StatefulWidget {
-  final Produk? produk;
-
-  const ProdukForm({Key? key, this.produk}) : super(key: key);
+class ProdukPage extends StatefulWidget {
+  const ProdukPage({Key? key}) : super(key: key);
 
   @override
-  State<ProdukForm> createState() => _ProdukFormState();
+  _ProdukPageState createState() => _ProdukPageState();
 }
 
-class _ProdukFormState extends State<ProdukForm> {
-  final _formKey = GlobalKey<FormState>();
-  final _kodeProdukController = TextEditingController();
-  final _namaProdukController = TextEditingController();
-  final _hargaProdukController = TextEditingController();
-
-  bool _isLoading = false;
-  late String _judul;
-  late String _labelTombol;
+class _ProdukPageState extends State<ProdukPage> {
+  late Future<List<Produk>> _futureProduk;
 
   @override
   void initState() {
     super.initState();
-    if (widget.produk != null) {
-      _judul = "UBAH PRODUK";
-      _labelTombol = "UBAH";
-      _kodeProdukController.text = widget.produk!.kodeProduk ?? '';
-      _namaProdukController.text = widget.produk!.namaProduk ?? '';
-      _hargaProdukController.text = widget.produk!.hargaProduk.toString();
-    } else {
-      _judul = "TAMBAH PRODUK";
-      _labelTombol = "SIMPAN";
-    }
+    _loadProduks();
   }
 
-  @override
-  void dispose() {
-    _kodeProdukController.dispose();
-    _namaProdukController.dispose();
-    _hargaProdukController.dispose();
-    super.dispose();
+  void _loadProduks() {
+    _futureProduk = ProdukBloc.getProduks();
+  }
+
+  void _refreshPage() {
+    setState(() {
+      _loadProduks();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_judul)),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(12),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              _textField(
-                controller: _kodeProdukController,
-                label: "Kode Produk",
-                validatorMsg: "Kode Produk harus diisi",
-              ),
-              _textField(
-                controller: _namaProdukController,
-                label: "Nama Produk",
-                validatorMsg: "Nama Produk harus diisi",
-              ),
-              _textField(
-                controller: _hargaProdukController,
-                label: "Harga",
-                inputType: TextInputType.number,
-                validatorMsg: "Harga harus diisi",
-              ),
-              const SizedBox(height: 20),
-              _submitButton(),
-            ],
-          ),
+      appBar: AppBar(
+        title: const Text('List Produk'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 20.0),
+            child: GestureDetector(
+              child: const Icon(Icons.add, size: 26.0),
+              onTap: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ProdukForm()),
+                );
+                _refreshPage();
+              },
+            ),
+          )
+        ],
+      ),
+      drawer: Drawer(
+        child: ListView(
+          children: [
+            ListTile(
+              title: const Text('Logout'),
+              trailing: const Icon(Icons.logout),
+              onTap: () async {
+                await LogoutBloc.logout();
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LoginPage()),
+                );
+              },
+            )
+          ],
         ),
+      ),
+      body: FutureBuilder<List<Produk>>(
+        future: _futureProduk,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(child: Text("Gagal memuat data: ${snapshot.error}"));
+          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return const Center(child: Text("Belum ada produk"));
+          }
+
+          final produks = snapshot.data!;
+          return ListView.builder(
+            itemCount: produks.length,
+            itemBuilder: (context, index) {
+              return ItemProduk(
+                produk: produks[index],
+                onUpdate: _refreshPage,
+              );
+            },
+          );
+        },
       ),
     );
   }
+}
 
-  Widget _textField({
-    required TextEditingController controller,
-    required String label,
-    required String validatorMsg,
-    TextInputType inputType = TextInputType.text,
-  }) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: inputType,
-      decoration: InputDecoration(labelText: label),
-      validator: (value) {
-        if (value == null || value.trim().isEmpty) {
-          return validatorMsg;
-        }
-        return null;
+class ItemProduk extends StatelessWidget {
+  final Produk produk;
+  final VoidCallback onUpdate;
+
+  const ItemProduk({Key? key, required this.produk, required this.onUpdate}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ProdukDetail(produk: produk),
+          ),
+        );
+        onUpdate();
       },
-    );
-  }
-
-  Widget _submitButton() {
-    return OutlinedButton(
-      onPressed: _isLoading ? null : _onSubmit,
-      child: _isLoading
-          ? const SizedBox(
-              height: 20,
-              width: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : Text(_labelTombol),
-    );
-  }
-
-  void _onSubmit() {
-    if (!_formKey.currentState!.validate()) return;
-
-    if (widget.produk != null) {
-      _ubahProduk();
-    } else {
-      _simpanProduk();
-    }
-  }
-
-  void _simpanProduk() async {
-    setState(() => _isLoading = true);
-
-    try {
-      final produkBaru = Produk(id: null)
-        ..kodeProduk = _kodeProdukController.text
-        ..namaProduk = _namaProdukController.text
-        ..hargaProduk = int.parse(_hargaProdukController.text);
-
-      await ProdukBloc.addProduk(produk: produkBaru);
-      if (!mounted) return;
-      _navigasiKeList();
-    } catch (_) {
-      if (!mounted) return;
-      _tampilkanError("Simpan gagal, silakan coba lagi");
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  void _ubahProduk() async {
-    setState(() => _isLoading = true);
-
-    try {
-      final produkUpdate = Produk(id: widget.produk!.id)
-        ..kodeProduk = _kodeProdukController.text
-        ..namaProduk = _namaProdukController.text
-        ..hargaProduk = int.parse(_hargaProdukController.text);
-
-      await ProdukBloc.updateProduk(produk: produkUpdate);
-      if (!mounted) return;
-      _navigasiKeList();
-    } catch (_) {
-      if (!mounted) return;
-      _tampilkanError("Permintaan ubah data gagal, silakan coba lagi");
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  void _tampilkanError(String msg) {
-    showDialog(
-      context: context,
-      builder: (context) => WarningDialog(description: msg),
-    );
-  }
-
-  void _navigasiKeList() {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => ProdukPage()),
+      child: Card(
+        child: ListTile(
+          title: Text(produk.namaProduk ?? '-'),
+          subtitle: Text("Rp ${produk.hargaProduk}"),
+        ),
+      ),
     );
   }
 }
